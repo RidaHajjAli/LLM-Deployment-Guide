@@ -1,0 +1,48 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: model-ollama
+    ports:
+      - "11435:11434"
+    
+    # Adjust based on your memory
+    #mem_limit: xx g
+    #memswap_limit: xx g
+
+    # Change based on your GPU, RAM, and VRAM, expected users, etc..
+    # This is for just one user, for development 
+    environment:
+      - OLLAMA_NUM_CTX=10000 
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_NUM_GPU_LAYERS=40
+    volumes:
+      - ollama_models:/root/.ollama
+    networks:
+      - app_net
+    deploy:
+      resources:
+        reservations:
+        # Recommended: Remove this block if you don't have a GPU
+        # Or change 'all' to the number of GPUs you want to use
+        # Or change 'nvidia' to the driver you want to use
+        # Or change 'gpu' to the capability you want to use
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    command: serve
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 60s
+
+networks:
+  app_net:
+    driver: bridge
+
+volumes:
+  ollama_models:

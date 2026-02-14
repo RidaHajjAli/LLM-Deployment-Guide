@@ -1,0 +1,62 @@
+services:
+  llm:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        LLAMA_TAG: b7531 # You can change the tag to choose another one from here: https://github.com/ggml-org/llama.cpp/releases
+    container_name: llm
+    ports:
+      - "8082:8082"
+    volumes:
+      - ./models:/models:ro
+    networks:
+      - app_net
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['0']
+              capabilities: [gpu, compute, utility]
+        limits:
+          memory: "4G" # You can change it
+    command:
+      - "-m"                              # Specify the model file to load
+      - "/models/Llama-3.2-1B-Instruct-Q4_0.gguf"    # Path to the quantized model file (Q4_K_M quantization)
+      - "--host"                          # Set the network interface to bind to
+      - "0.0.0.0"                         # Listen on all network interfaces (accessible from anywhere)
+      - "--port"                          # Set the port number for the server
+      - "8082"                            # Server will run on port 8082
+      - "-c"                              # Set the context window size (max tokens model can consider)
+      - "4096"                            # Context length of 4096 tokens
+      - "-np"                             # Set number of parallel sequences to process
+      - "${N_PARALLEL:-4}"                # Use environment variable N_PARALLEL, default to 4 if not set
+      - "-ngl"                            # Number of GPU layers to offload to GPU (for VRAM acceleration)
+      - "99"                              # Offload 99 layers to GPU (effectively all layers if supported)
+      - "-fa"                             # Flash Attention setting
+      - "on"                              # Enable Flash Attention for faster processing
+      - "-b"                              # Set batch size for prompt processing
+      - "2048"                            # Process prompts in batches of 2048 tokens
+      - "-ub"                             # Set batch size for generation/prediction
+      - "1024"                            # Generate tokens in batches of 1024
+      - "--cache-type-k"                  # Set quantization type for Key cache
+      - "q8_0"                            # Use 8-bit quantization for Key cache (reduces VRAM usage)
+      - "--cache-type-v"                  # Set quantization type for Value cache
+      - "q8_0"                            # Use 8-bit quantization for Value cache (reduces VRAM usage)
+      - "--mlock"                         # Lock model in RAM (prevents swapping to disk)
+      - "--no-mmap"                       # Disable memory mapping (loads entire model into RAM)
+      - "-t"                              # Set number of CPU threads to use
+      - "8"                               # Use 8 CPU threads
+      - "-n"                              # Set maximum number of tokens to generate
+      - "4096"                            # Limit generation to 4096 tokens maximum
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8082/health || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+
+networks:
+  app_net:
+    driver: bridge

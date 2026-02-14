@@ -1,0 +1,47 @@
+services:
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: model-vllm
+    ports:
+      - "8018:8000"
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+      - VLLM_WORKER_MULTIPROC_METHOD=spawn
+    volumes:
+      - vllm_models:/root/.cache/huggingface
+    networks:
+      - app_net
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    command: >
+      --model casperhansen/llama-3.2-1b-instruct-awq
+      --port 8000
+      --host 0.0.0.0
+      --gpu-memory-utilization 0.7
+      --max-model-len 4096
+      --tensor-parallel-size 1
+      --dtype auto
+      --quantization awq_marlin
+      --enable-prefix-caching
+      --max-num-seqs 128
+      --max-num-batched-tokens 4096
+      --api-key EMPTY
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    shm_size: '2gb'
+
+networks:
+  app_net:
+    driver: bridge
+
+volumes:
+  vllm_models:
