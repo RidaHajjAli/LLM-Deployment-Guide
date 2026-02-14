@@ -204,6 +204,11 @@ cd llama_cpp
 python test_llama_cpp.py
 ```
 
+#### Demo
+ 
+https://github.com/user-attachments/assets/9f20b9f0-aa3f-45c8-bb43-aa742bde175a
+ 
+
 #### Stopping
 
 ```bash
