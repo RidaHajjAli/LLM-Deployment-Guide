@@ -70,7 +70,7 @@ response = client.chat.completions.create(
     messages=[
         {"role": "user", "content": "Your question here"}
     ],
-    max_tokens=100,
+    max_tokens=1000,
     temperature=0.7
 )
 
