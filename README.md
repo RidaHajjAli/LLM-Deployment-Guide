@@ -1,4 +1,4 @@
-# LLM Engines
+# LLM Deployment Guide
 
 A comprehensive guide and setup for running Large Language Models using different inference engines: Ollama, llama.cpp, and vLLM. Each engine is containerized using Docker for easy deployment and testing.
 
@@ -206,6 +206,11 @@ cd llama_cpp
 python test_llama_cpp.py
 ```
 
+#### Demo
+ 
+https://github.com/user-attachments/assets/9f20b9f0-aa3f-45c8-bb43-aa742bde175a
+ 
+
 #### Stopping
 
 ```bash
@@ -372,4 +377,4 @@ docker logs model-vllm
 
 ## License
 
-This project is provided as-is for educational and development purposes.
+This project is provided as-is, licensed under the MIT License. See the [`LICENSE`](./LICENSE)file for details.
