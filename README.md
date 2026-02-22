@@ -2,6 +2,8 @@
 
 A comprehensive guide and setup for running Large Language Models using different inference engines: Ollama, llama.cpp, and vLLM. Each engine is containerized using Docker for easy deployment and testing.
 
+![image](assets/image.png)
+
 ## Table of Contents
 
 - [Overview](#overview)
