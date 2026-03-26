@@ -37,7 +37,7 @@ echo "PARAMETER num_ctx 12000" >> $Modelfile # Or how much you want, based on ho
 ollama create llama3.2_12k -f $Modelfile # Then change its name in config.py to be llama3.2_12k
 ollama list # to confirm
 exit # now the model is available
-
+```
 
 The default model is `llama3.2:1b` as configured in `config.py`.
 
