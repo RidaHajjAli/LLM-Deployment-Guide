@@ -14,16 +14,18 @@ A comprehensive guide and setup for running Large Language Models using differen
   - [Ollama](#ollama)
   - [llama.cpp](#llamacpp)
   - [vLLM](#vllm)
+  - [TensorRT-LLM](#tensorrt-llm)
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
 
 ## Overview
 
-This project provides Docker-based setups for three popular LLM inference engines:
+This project provides Docker-based setups for four popular LLM inference engines:
 
 - **Ollama**: User-friendly LLM runtime with simple model management
 - **llama.cpp**: Efficient C++ implementation optimized for CPU and GPU inference
 - **vLLM**: High-throughput serving engine optimized for production workloads
+- **TensorRT-LLM**: NVIDIA's optimized inference library delivering maximum GPU throughput via `trtllm-serve`
 
 All engines expose OpenAI-compatible APIs, making it easy to switch between them.
 
@@ -63,9 +65,12 @@ LLM_Engines/
 │   │   └── Dockerfile       # Custom llama.cpp build
 │   ├── models/              # Place GGUF models here
 │   └── test_llama_cpp.py    # Test script for llama.cpp
-└── vLLM/
-    ├── docker-compose.yml   # vLLM service configuration
-    └── test_vLLM.py         # Test script for vLLM
+├── vLLM/
+│   ├── docker-compose.yml   # vLLM service configuration
+│   └── test_vLLM.py         # Test script for vLLM
+└── tensorrt_llm/
+    ├── docker-compose.yml   # TensorRT-LLM service configuration
+    └── test_tensorrt_llm.py # Test script for TensorRT-LLM
 ```
 
 ## Configuration
@@ -81,6 +86,9 @@ VLLM_MODEL: str = "casperhansen/llama-3.2-1b-instruct-awq"
 
 LLAMA_CPP_URL: str = "http://localhost:8082"
 LLAMA_CPP_MODEL: str = "Llama-3.2-1B-Instruct-Q4_0.gguf"
+
+TENSORRT_LLM_URL: str = "http://localhost:8019"
+TENSORRT_LLM_MODEL: str = "meta-llama/Llama-3.2-1B-Instruct"
 ```
 
 Modify these settings to use different models or ports.
@@ -292,6 +300,100 @@ python test_vLLM.py
 docker compose down
 ```
 
+### TensorRT-LLM
+
+TensorRT-LLM delivers NVIDIA-optimized inference using `trtllm-serve`, which runs inside the official Triton Server image and exposes an OpenAI-compatible API — no manual engine building required when using the PyTorch backend.
+
+#### Setup
+
+1. Set your Hugging Face token:
+```bash
+export HF_TOKEN=your_huggingface_token
+```
+
+Or create a `.env` file in the `tensorrt_llm` directory:
+```
+HF_TOKEN=your_huggingface_token
+```
+
+You can get the token from [Hugging Face](https://huggingface.co/settings/tokens).
+
+2. Start the service:
+```bash
+cd tensorrt_llm
+docker compose up -d
+```
+
+The model will be automatically downloaded from Hugging Face on first run. The image is large (~20 GB), so the initial `docker pull` may take some time.
+
+#### Configuration Options
+
+Edit `tensorrt_llm/docker-compose.yml` to customize:
+
+**Model Configuration:**
+- First positional argument to `trtllm-serve`: Hugging Face model ID or local path
+- `--backend pytorch`: Use the eager PyTorch backend (no engine build step). Switch to `trtllm` for full TensorRT optimization (requires a longer first-run engine-build phase).
+- `--max_seq_len 4096`: Maximum sequence length
+
+**Performance Tuning:**
+- `--tp_size 1`: Tensor parallel size (number of GPUs)
+- `--kv_cache_free_gpu_memory_fraction 0.9`: Fraction of free GPU memory reserved for the KV cache (PyTorch backend)
+
+**Shared Memory:**
+```yaml
+shm_size: '2gb'  # Increase for larger models
+```
+
+#### Backend Options
+
+| Backend | Engine build on first run | Best for |
+|---------|--------------------------|----------|
+| `pytorch` | No | Quick start, development |
+| `trtllm` | Yes (GPU required at build time) | Maximum throughput in production |
+
+To switch to the TRT backend, change the `command` in `docker-compose.yml`:
+```yaml
+command: >
+  meta-llama/Llama-3.2-1B-Instruct
+  --host 0.0.0.0
+  --port 8000
+  --backend trtllm
+  --max_seq_len 4096
+  --tp_size 1
+```
+
+#### GPU Configuration
+
+To use multiple GPUs, update both `count` and `--tp_size`:
+```yaml
+devices:
+  - driver: nvidia
+    count: 2  # Use 2 GPUs
+    capabilities: [gpu]
+```
+```yaml
+command: >
+  meta-llama/Llama-3.2-1B-Instruct
+  --host 0.0.0.0
+  --port 8000
+  --backend pytorch
+  --max_seq_len 4096
+  --tp_size 2
+```
+
+#### Testing
+
+```bash
+cd tensorrt_llm
+python test_tensorrt_llm.py
+```
+
+#### Stopping
+
+```bash
+docker compose down
+```
+
 ## Testing
 
 ### Install Python Dependencies
@@ -313,6 +415,9 @@ python llama_cpp/test_llama_cpp.py
 
 # Test vLLM
 python vLLM/test_vLLM.py
+
+# Test TensorRT-LLM
+python tensorrt_llm/test_tensorrt_llm.py
 ```
 
 All test scripts use the OpenAI Python client for consistent API interaction.
@@ -332,6 +437,9 @@ curl http://localhost:8082/health
 
 # vLLM
 curl http://localhost:8018/health
+
+# TensorRT-LLM
+curl http://localhost:8019/health
 ```
 
 ### View Logs
@@ -345,6 +453,9 @@ docker logs llm
 
 # vLLM
 docker logs model-vllm
+
+# TensorRT-LLM
+docker logs model-tensorrt-llm
 ```
 
 ### Common Issues
@@ -358,7 +469,7 @@ docker logs model-vllm
 - Decrease context size or batch size
 - Use smaller quantized models
 
-**Model download fails (vLLM):**
+**Model download fails (vLLM / TensorRT-LLM):**
 - Verify HF_TOKEN is set correctly
 - Check internet connection
 - Ensure sufficient disk space
@@ -372,8 +483,9 @@ docker logs model-vllm
 1. **Use quantized models** for better memory efficiency
 2. **Enable flash attention** when supported
 3. **Adjust batch sizes** based on available VRAM
-4. **Use tensor parallelism** (vLLM) for multi-GPU setups
+4. **Use tensor parallelism** (vLLM, TensorRT-LLM) for multi-GPU setups
 5. **Monitor GPU utilization** with `nvidia-smi`
+6. **Switch TensorRT-LLM to `trtllm` backend** for maximum throughput once the engine has been built
 
 ## License
 
