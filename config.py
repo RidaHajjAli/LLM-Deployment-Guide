@@ -10,5 +10,8 @@ class Settings(BaseModel):
     LLAMA_CPP_URL: str = "http://localhost:8082"
     LLAMA_CPP_MODEL: str = "Llama-3.2-1B-Instruct-Q4_0.gguf"
 
+    TENSORRT_LLM_URL: str = "http://localhost:8019"
+    TENSORRT_LLM_MODEL: str = "meta-llama/Llama-3.2-1B-Instruct"
+
 settings = Settings()
 
